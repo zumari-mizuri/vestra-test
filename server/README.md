@@ -4,6 +4,21 @@ This folder contains a real Hedera testnet integration harness for an already
 deployed `VestraManager`. It creates a new test collection and real test NFT
 receipts; use disposable testnet accounts only.
 
+## Server layout
+
+```text
+src/
+  schema/       Zod request contracts and inferred input types
+  controller/   HTTP request/response translation only
+  core/         Vestra business operations and domain errors
+  route/        Public and admin endpoint registration
+  server/       Express startup plus Hedera, Pinata, ID and Mongo helpers
+```
+
+`src/server/index.ts` only configures dependencies, middleware, routes and the
+central error handler. Contract calls, metadata generation and Mongo persistence
+are kept in the core/helper layers rather than route handlers.
+
 ## Setup
 
 ```bash
@@ -49,8 +64,13 @@ a shared terminal, chat, commit, or screenshot.
 
 `pnpm server` starts an Express API on `http://0.0.0.0:3001`. It signs only
 Vestra admin contract calls using `HEDERA_ADMIN_PRIVATE_KEY`; it never accepts,
-stores, or uses an investor private key. The service deliberately refuses to
-bind to a public interface because this initial version has no authentication.
+stores, or uses an investor private key. It requires `MONGO_URI` and persists
+the public collection and receipt registry in MongoDB, so state survives Render
+restarts and redeployments.
+
+The service calls `mongoose.connect(MONGO_URI)` **before** opening its HTTP
+port. A successful startup includes `MongoDB connected successfully (...)`; a
+failed handshake prevents the API from starting.
 
 Copy `.env.example` to `.env` and provide the admin and Pinata values, or use
 the repository-level `.env` already used by the deployment scripts (the server
@@ -58,11 +78,10 @@ falls back to it when this folder has no `.env`). The existing testnet contract
 is `0.0.9917595` unless you have deployed another one. `PINATA_JWT_SECRET` is
 the Pinata JWT, not an API key or API secret.
 
-The service writes a local, Git-ignored `data/registry.json`. It stores public
-display and operational data only: token address, receipt IDs, terms shown in
-the certificate, CIDs, status and transaction IDs. Raw instrument references,
-terms documents and lifecycle evidence are hashed in memory and are never
-persisted by this API.
+MongoDB stores public display and operational data only: token address, receipt
+IDs, terms shown in the certificate, CIDs, status and transaction IDs. Raw
+instrument references, terms documents and lifecycle evidence are hashed in
+memory and are never persisted by this API.
 
 Available endpoints:
 

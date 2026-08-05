@@ -192,7 +192,7 @@ function UserMode({ assets }: { assets: Asset[] }) {
           text="Check back after Vestra enables an investment product."
         />
       ) : (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap gap-4">
           {assets.map((asset) => (
             <AssetCard
               key={asset.assetClassId}
@@ -317,28 +317,34 @@ function AssetCard({
   };
   return (
     <>
-      <Card className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
+      <Card className="flex w-full shrink-0 flex-col overflow-hidden p-0 sm:w-[calc((100%-1rem)/2)] lg:w-[calc((100%-3rem)/4)]">
+        <img
+          src={ipfsGateway(asset.imageUri)}
+          alt={`${asset.name} collection`}
+          className="aspect-square w-full bg-[hsl(var(--muted))] object-cover"
+        />
+        <div className="flex min-w-0 flex-1 flex-col gap-3 p-4">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-xl font-semibold">{asset.name}</h2>
+            <h2 className="text-base font-semibold">{asset.name}</h2>
             <Badge tone="good">{asset.status}</Badge>
           </div>
-          <p className="max-w-prose text-sm text-[hsl(var(--muted-foreground))]">
+          <p className="text-sm text-[hsl(var(--muted-foreground))]">
             {asset.description}
           </p>
           <p className="break-all font-mono text-xs text-[hsl(var(--muted-foreground))]">
             Collection: {asset.tokenAddress}
           </p>
+          <Button
+            className="mt-auto w-full"
+            onClick={() => {
+              setOpen(true);
+              setError("");
+              setReceipt(null);
+            }}
+          >
+            Purchase
+          </Button>
         </div>
-        <Button
-          onClick={() => {
-            setOpen(true);
-            setError("");
-            setReceipt(null);
-          }}
-        >
-          Purchase
-        </Button>
       </Card>
       {open && (
         <div

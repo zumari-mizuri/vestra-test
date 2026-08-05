@@ -1,5 +1,6 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import mongoose from "mongoose";
+import { AssetModel } from "../schema/asset.model.ts";
+import { ReceiptModel } from "../schema/receipt.model.ts";
 
 export type Asset = {
   assetClassKey: string;
@@ -13,6 +14,7 @@ export type Asset = {
   createdAt: string;
   transactionId?: string;
 };
+
 export type Receipt = {
   publicId: string;
   receiptId: string;
@@ -38,75 +40,113 @@ export type Receipt = {
   transactionId?: string;
   statusEvidenceHash?: string;
 };
-type RegistryFile = { version: 1; assets: Asset[]; receipts: Receipt[] };
-const empty = (): RegistryFile => ({ version: 1, assets: [], receipts: [] });
 
+const ZERO_BYTES32 = "0x".padEnd(66, "0");
+
+function plain<T>(value: unknown): T {
+  const record = value as Record<string, unknown>;
+  delete record._id;
+  return record as T;
+}
+
+/** MongoDB-backed record cache for the contract's public collections/receipts. */
 export class Registry {
-  private data: RegistryFile | undefined;
-  constructor(private readonly path: string) {}
-  async all(): Promise<RegistryFile> {
-    return structuredClone(await this.load());
+  private connection: Promise<typeof mongoose> | undefined;
+
+  constructor(private readonly mongoUri: string) {}
+
+  /** Establish the database connection before the HTTP server accepts traffic. */
+  async connect(): Promise<{ host: string; database: string }> {
+    await this.ready();
+    return {
+      host: mongoose.connection.host,
+      database: mongoose.connection.name,
+    };
   }
+
+  async all(): Promise<{ version: 1; assets: Asset[]; receipts: Receipt[] }> {
+    await this.ready();
+    const [assets, receipts] = await Promise.all([
+      AssetModel.find().sort({ createdAt: -1 }).lean(),
+      ReceiptModel.find().sort({ issuedAt: -1 }).lean(),
+    ]);
+    return {
+      version: 1,
+      assets: assets.map((asset) => plain<Asset>(asset)),
+      receipts: receipts.map((receipt) => plain<Receipt>(receipt)),
+    };
+  }
+
   async asset(id: string): Promise<Asset | undefined> {
-    return (await this.load()).assets.find(
-      (item) => item.assetClassId.toLowerCase() === id.toLowerCase(),
-    );
+    await this.ready();
+    const asset = await AssetModel.findOne({ assetClassId: new RegExp(`^${id}$`, "i") }).lean();
+    return asset ? plain<Asset>(asset) : undefined;
   }
+
   async receipt(id: string): Promise<Receipt | undefined> {
-    return (await this.load()).receipts.find(
-      (item) =>
-        item.receiptId.toLowerCase() === id.toLowerCase() ||
-        item.publicId === id,
-    );
+    await this.ready();
+    const receipt = await ReceiptModel.findOne({
+      $or: [{ receiptId: new RegExp(`^${id}$`, "i") }, { publicId: id }],
+    }).lean();
+    return receipt ? plain<Receipt>(receipt) : undefined;
   }
+
   async addAsset(asset: Asset): Promise<void> {
-    const data = await this.load();
-    if (data.assets.some((item) => item.assetClassId === asset.assetClassId))
-      throw new Error("Asset class is already in the registry");
-    data.assets.push(asset);
-    await this.save();
-  }
-  async addReceipt(receipt: Receipt): Promise<void> {
-    const data = await this.load();
-    if (data.receipts.some((item) => item.receiptId === receipt.receiptId))
-      throw new Error("Receipt is already in the registry");
-    data.receipts.push(receipt);
-    if (receipt.replacesReceiptId !== "0x".padEnd(66, "0")) {
-      const prior = data.receipts.find(
-        (item) => item.receiptId === receipt.replacesReceiptId,
-      );
-      if (prior) prior.replacementReceiptId = receipt.receiptId;
-    }
-    await this.save();
-  }
-  async updateAsset(id: string, patch: Partial<Asset>): Promise<Asset> {
-    const item = await this.asset(id);
-    if (!item) throw new Error("Asset class is not in the registry");
-    Object.assign(item, patch);
-    await this.save();
-    return structuredClone(item);
-  }
-  async updateReceipt(id: string, patch: Partial<Receipt>): Promise<Receipt> {
-    const item = await this.receipt(id);
-    if (!item) throw new Error("Receipt is not in the registry");
-    Object.assign(item, patch);
-    await this.save();
-    return structuredClone(item);
-  }
-  private async load(): Promise<RegistryFile> {
-    if (this.data) return this.data;
+    await this.ready();
     try {
-      this.data = JSON.parse(await readFile(this.path, "utf8")) as RegistryFile;
-    } catch (error: unknown) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-      this.data = empty();
+      await AssetModel.create(asset);
+    } catch (error) {
+      if (isDuplicate(error)) throw new Error("Asset class is already in the registry");
+      throw error;
     }
-    return this.data;
   }
-  private async save(): Promise<void> {
-    await mkdir(dirname(this.path), { recursive: true });
-    const temp = `${this.path}.tmp`;
-    await writeFile(temp, JSON.stringify(this.data, null, 2) + "\n", "utf8");
-    await rename(temp, this.path);
+
+  async addReceipt(receipt: Receipt): Promise<void> {
+    await this.ready();
+    try {
+      await ReceiptModel.create(receipt);
+    } catch (error) {
+      if (isDuplicate(error)) throw new Error("Receipt already exists in the registry");
+      throw error;
+    }
+    if (receipt.replacesReceiptId !== ZERO_BYTES32) {
+      await ReceiptModel.updateOne(
+        { receiptId: receipt.replacesReceiptId },
+        { $set: { replacementReceiptId: receipt.receiptId } },
+      );
+    }
   }
+
+  async updateAsset(id: string, patch: Partial<Asset>): Promise<Asset> {
+    await this.ready();
+    const asset = await AssetModel.findOneAndUpdate(
+      { assetClassId: new RegExp(`^${id}$`, "i") },
+      { $set: patch },
+      { new: true },
+    ).lean();
+    if (!asset) throw new Error("Asset class is not in the registry");
+    return plain<Asset>(asset);
+  }
+
+  async updateReceipt(id: string, patch: Partial<Receipt>): Promise<Receipt> {
+    await this.ready();
+    const receipt = await ReceiptModel.findOneAndUpdate(
+      { $or: [{ receiptId: new RegExp(`^${id}$`, "i") }, { publicId: id }] },
+      { $set: patch },
+      { new: true },
+    ).lean();
+    if (!receipt) throw new Error("Receipt is not in the registry");
+    return plain<Receipt>(receipt);
+  }
+
+  private async ready(): Promise<void> {
+    this.connection ??= mongoose.connect(this.mongoUri, {
+      serverSelectionTimeoutMS: 10_000,
+    });
+    await this.connection;
+  }
+}
+
+function isDuplicate(error: unknown): boolean {
+  return typeof error === "object" && error !== null && "code" in error && (error as { code: unknown }).code === 11000;
 }
