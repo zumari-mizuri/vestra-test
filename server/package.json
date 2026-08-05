@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@hashgraph/sdk": "^2.77.0",
+    "cors": "^2.8.6",
     "dotenv": "^16.6.1",
     "ethers": "^6.16.0",
     "express": "^5.2.1",
@@ -19,6 +20,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^24.3.0",
     "@types/pdfkit": "^0.17.6",

@@ -54,12 +54,12 @@ API directly instead of using the rewrite:
 # Vercel dashboard environment
 NEXT_PUBLIC_VESTRA_API_URL=https://vestra-test.onrender.com
 
-# Render API environment
-CORS_ORIGINS=https://vestra-test-three.vercel.app
 ```
 
 `NEXT_PUBLIC_VESTRA_API_URL` is safe to expose: it is only the public API
-origin. Never put Hedera admin keys or Pinata credentials in Vercel.
+origin. The testnet API currently permits all browser origins (`*`). Never put
+Hedera admin keys or Pinata credentials in Vercel; restore a specific CORS
+allowlist together with authenticated admin routes before production.
 
 The user view connects an EVM wallet on Hedera Testnet and calls Hedera's HTS
 system contract directly to associate a collection. The EVM identity must map
