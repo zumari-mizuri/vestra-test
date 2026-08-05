@@ -1,0 +1,4 @@
+node_modules/
+.env
+data/registry.json
+data/registry.json.tmp
