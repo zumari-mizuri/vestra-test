@@ -39,10 +39,7 @@ const required = (name: string) => {
 
 const port = Number(process.env.PORT ?? 3001);
 const host = process.env.HOST ?? "127.0.0.1";
-if (host !== "127.0.0.1" && host !== "localhost")
-  throw new Error(
-    "This unauthenticated admin API must bind to 127.0.0.1 or localhost",
-  );
+
 const collectionFee = Number(required("COLLECTION_CREATE_TINYBARS"));
 if (!Number.isSafeInteger(collectionFee) || collectionFee <= 0)
   throw new Error("COLLECTION_CREATE_TINYBARS must be a positive integer");
