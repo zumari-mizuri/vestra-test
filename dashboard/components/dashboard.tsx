@@ -43,6 +43,13 @@ const tenors = [
   { days: 182, yieldBps: 1600, label: "182 days · 16.00%" },
   { days: 364, yieldBps: 1700, label: "364 days · 17.00%" },
 ] as const;
+// Testnet demo payment instructions. Replace these three values directly when
+// you want the dashboard to display a different account.
+const paymentAccount = {
+  bankName: "Vestra Test Bank",
+  accountNumber: "0000000000",
+  accountName: "Vestra Test Treasury",
+};
 function nairaToMinor(value: string): bigint {
   const match = value
     .trim()
@@ -222,6 +229,7 @@ function AssetCard({
   const [tenorIndex, setTenorIndex] = useState(2);
   const [error, setError] = useState("");
   const [receipt, setReceipt] = useState<Receipt | null>(null);
+  const [paymentStep, setPaymentStep] = useState(false);
   const { writeContractAsync } = useWriteContract();
   const close = () => {
     if (!busy) setOpen(false);
@@ -315,6 +323,17 @@ function AssetCard({
       setBusy(false);
     }
   };
+  const continueToPayment = () => {
+    try {
+      nairaToMinor(amount);
+      setError("");
+      setPaymentStep(true);
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Enter a valid NGN amount",
+      );
+    }
+  };
   return (
     <>
       <Card className="flex w-full shrink-0 flex-col overflow-hidden p-0 sm:w-[calc((100%-1rem)/2)] lg:w-[calc((100%-3rem)/4)]">
@@ -340,6 +359,7 @@ function AssetCard({
               setOpen(true);
               setError("");
               setReceipt(null);
+              setPaymentStep(false);
             }}
           >
             Purchase
@@ -398,12 +418,51 @@ function AssetCard({
                   </div>
                   <Button onClick={close}>Done</Button>
                 </div>
+              ) : paymentStep ? (
+                <div className="flex flex-col gap-4">
+                  <div className="rounded-md border bg-[hsl(var(--muted))] p-3 text-sm">
+                    <p className="font-medium">Testnet payment instruction</p>
+                    <p className="mt-1 text-[hsl(var(--muted-foreground))]">
+                      This screen is for the demo flow only. No bank transfer is
+                      sent to or verified by Vestra.
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-3 rounded-md border p-4">
+                    <div>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))]">
+                        Amount to transfer
+                      </p>
+                      <p className="mt-1 text-2xl font-semibold">
+                        {formatAmount(
+                          nairaToMinor(amount).toString(),
+                          "NGN",
+                        )}
+                      </p>
+                    </div>
+                    <PaymentDetail label="Bank name" value={paymentAccount.bankName} />
+                    <PaymentDetail label="Account number" value={paymentAccount.accountNumber} />
+                    <PaymentDetail label="Account name" value={paymentAccount.accountName} />
+                  </div>
+                  {error && (
+                    <p role="alert" className="text-sm text-red-700 dark:text-red-300">
+                      {error}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <Button type="button" variant="secondary" onClick={() => setPaymentStep(false)} disabled={busy}>
+                      Back
+                    </Button>
+                    <Button type="button" onClick={() => void purchase()} disabled={busy} aria-busy={busy}>
+                      {busy ? "Issuing receipt…" : "I’ve made the transfer"}
+                    </Button>
+                  </div>
+                </div>
               ) : (
                 <form
                   className="flex flex-col gap-4"
                   onSubmit={(event) => {
                     event.preventDefault();
-                    void purchase();
+                    continueToPayment();
                   }}
                 >
                   <label
@@ -462,7 +521,7 @@ function AssetCard({
                       Cancel
                     </Button>
                     <Button type="submit" disabled={busy} aria-busy={busy}>
-                      {busy ? "Processing purchase…" : "Purchase"}
+                      Continue to payment
                     </Button>
                   </div>
                 </form>
@@ -472,6 +531,14 @@ function AssetCard({
         </div>
       )}
     </>
+  );
+}
+function PaymentDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-1 border-t pt-3">
+      <p className="text-xs text-[hsl(var(--muted-foreground))]">{label}</p>
+      <p className="break-all font-medium">{value}</p>
+    </div>
   );
 }
 function AdminMode({

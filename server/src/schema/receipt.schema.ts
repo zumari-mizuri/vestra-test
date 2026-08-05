@@ -17,10 +17,10 @@ export const receiptInput = z
     annualYieldBps: z.number().int().min(0).max(100_000),
     effectiveDate: seconds,
     maturityDate: seconds,
-    instrumentReference: z.string().min(1).max(500),
+    instrumentReference: z.string().trim().min(1),
     termsDocument: z.unknown(),
     replacesReceiptId: hex32.optional(),
-    publicId: z.string().uuid().optional(),
+    publicId: z.string().trim().min(1).optional(),
   })
   .superRefine((value, ctx) => {
     if (value.maturityDate <= value.effectiveDate)

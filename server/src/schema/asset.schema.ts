@@ -3,11 +3,11 @@ import { z } from "zod";
 const hex32 = z.string().regex(/^0x[0-9a-fA-F]{64}$/, "must be bytes32 hex");
 
 export const assetInput = z.object({
-  assetClassKey: z.string().regex(/^[A-Z][A-Z0-9_]{1,47}$/),
-  name: z.string().min(2).max(100),
-  symbol: z.string().regex(/^[A-Z0-9]{1,10}$/),
-  description: z.string().min(10).max(500),
-  imageUri: z.string().regex(/^ipfs:\/\//),
+  assetClassKey: z.string().trim().min(1),
+  name: z.string().trim().min(1),
+  symbol: z.string().trim().min(1),
+  description: z.string().trim().min(1),
+  imageUri: z.string().trim().min(1),
 });
 
 export const importAssetInput = assetInput.extend({
