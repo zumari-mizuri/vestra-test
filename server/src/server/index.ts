@@ -37,8 +37,11 @@ const required = (name: string) => {
   return value;
 };
 
-const port = Number(process.env.PORT ?? 3001);
-const host = process.env.HOST ?? "127.0.0.1";
+// Render supplies PORT at runtime and needs the service to accept traffic on
+// every interface. `||` intentionally treats an accidentally empty env value
+// as absent: Number("") is 0, which makes Node select a random port.
+const port = Number(process.env.PORT) || 3001;
+const host = process.env.HOST || "0.0.0.0";
 
 const collectionFee = Number(required("COLLECTION_CREATE_TINYBARS"));
 if (!Number.isSafeInteger(collectionFee) || collectionFee <= 0)

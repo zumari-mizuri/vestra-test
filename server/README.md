@@ -47,7 +47,7 @@ a shared terminal, chat, commit, or screenshot.
 
 ## Local admin API
 
-`pnpm server` starts an Express API on `http://127.0.0.1:3001`. It signs only
+`pnpm server` starts an Express API on `http://0.0.0.0:3001`. It signs only
 Vestra admin contract calls using `HEDERA_ADMIN_PRIVATE_KEY`; it never accepts,
 stores, or uses an investor private key. The service deliberately refuses to
 bind to a public interface because this initial version has no authentication.
