@@ -1,7 +1,10 @@
 import type { Asset, Association, Receipt } from "./types";
-// const base = "/backend";
+// Browser calls stay same-origin. Next.js rewrites this prefix server-side to
+// VESTRA_BACKEND_URL, so a deployed dashboard can reach the separate Render API
+// without exposing its origin to the browser or requiring API CORS rules.
+const base = "/backend";
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${path}`, {
+  const response = await fetch(`${base}${path}`, {
     ...init,
     headers: { "content-type": "application/json", ...init?.headers },
     cache: "no-store",
