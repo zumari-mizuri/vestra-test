@@ -1,8 +1,8 @@
 import type { Asset, Association, Receipt } from "./types";
-// Browser calls stay same-origin. Next.js rewrites this prefix server-side to
-// VESTRA_BACKEND_URL, so a deployed dashboard can reach the separate Render API
-// without exposing its origin to the browser or requiring API CORS rules.
-const base = "/backend";
+// Production calls can go directly to the separately deployed API. This is a
+// public URL (never a secret), and the API restricts browser origins with its
+// CORS_ORIGINS allowlist. Local development retains the Next.js proxy fallback.
+const base = (process.env.NEXT_PUBLIC_VESTRA_API_URL ?? "/backend").replace(/\/$/, "");
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${base}${path}`, {
     ...init,
