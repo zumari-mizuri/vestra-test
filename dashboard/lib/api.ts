@@ -1,8 +1,9 @@
 import type { Asset, Association, Receipt } from "./types";
-// Production calls can go directly to the separately deployed API. This is a
-// public URL (never a secret), and the API restricts browser origins with its
-// CORS_ORIGINS allowlist. Local development retains the Next.js proxy fallback.
-const base = (process.env.NEXT_PUBLIC_VESTRA_API_URL ?? "/backend").replace(/\/$/, "");
+// The API is a separately deployed service. Its origin is public (not a
+// credential); signing keys remain in the Render environment.
+const base = (
+  process.env.NEXT_PUBLIC_VESTRA_API_URL ?? "https://vestra-test.onrender.com"
+).replace(/\/$/, "");
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${base}${path}`, {
     ...init,
